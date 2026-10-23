@@ -1,0 +1,23 @@
+name: Bug
+description: Something did not convert, or the wheel did the wrong thing
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you dragged, which key you held, which slice you picked, and what you got.
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.1"
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: Sample file
+      description: Attach the file if you can share it.

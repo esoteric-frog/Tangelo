@@ -1,3 +1,5 @@
 .build/
 build/
 vendor/
+.superpowers/
+.DS_Store

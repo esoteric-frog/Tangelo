@@ -1,0 +1,11 @@
+name: Idea
+description: A format, tool or action you want on a wheel
+labels: [enhancement]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What should Tangelo do?
+      description: For example, "Convert MOV to MP4 on the Control wheel".
+    validations:
+      required: true

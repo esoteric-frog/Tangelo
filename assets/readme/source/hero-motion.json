@@ -1,0 +1,88 @@
+{
+  "width": 1200,
+  "fps": 30,
+  "duration": 6.0,
+  "colors": 256,
+  "dither": "none",
+  "clip_to_base_alpha": true,
+  "max_size_mb": 2.0,
+  "reveals": [],
+  "layers": [
+    {
+      "id": "hot",
+      "enter": {
+        "start": 1.5,
+        "end": 1.9,
+        "from": [
+          0,
+          0
+        ]
+      },
+      "exit": {
+        "start": 5.1,
+        "end": 5.9,
+        "to": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "hot-label",
+      "enter": {
+        "start": 1.5,
+        "end": 1.9,
+        "from": [
+          0,
+          0
+        ]
+      },
+      "exit": {
+        "start": 5.1,
+        "end": 5.9,
+        "to": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "hot-center",
+      "enter": {
+        "start": 1.6,
+        "end": 1.75,
+        "from": [
+          0,
+          0
+        ]
+      },
+      "exit": {
+        "start": 5.1,
+        "end": 5.9,
+        "to": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "drag",
+      "enter": {
+        "start": 0.3,
+        "end": 1.4,
+        "from": [
+          -150,
+          60
+        ]
+      },
+      "exit": {
+        "start": 5.1,
+        "end": 5.9,
+        "to": [
+          -40,
+          16
+        ]
+      }
+    }
+  ]
+}

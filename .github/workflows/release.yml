@@ -1,0 +1,17 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: scripts/test.sh
+      - run: scripts/make-app.sh
+      - run: ditto -c -k --keepParent build/Tangelo.app Tangelo.zip
+      - run: gh release create "$GITHUB_REF_NAME" Tangelo.zip --title "Tangelo $GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
