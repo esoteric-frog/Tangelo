@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import TangeloCore
 
-let registry = Registry([ImageConverter(binDir: binDir)])
+let registry = Registry([ImageConverter(binDir: binDir), PDFShrinkConverter()])
 
 @Test func choicesAreCommonToAllFiles() {
     let pngAndHeic = [URL(fileURLWithPath: "/a.png"), URL(fileURLWithPath: "/b.heic")]
@@ -22,4 +22,8 @@ let registry = Registry([ImageConverter(binDir: binDir)])
 
 @Test func uppercaseExtensionsWork() {
     #expect(registry.choices(for: [URL(fileURLWithPath: "/IMG_1.HEIC")]).contains(.jpeg))
+}
+
+@Test func pdfAloneOffersSmallerPDF() {
+    #expect(registry.choices(for: [URL(fileURLWithPath: "/a.pdf")]) == [.smallPDF])
 }

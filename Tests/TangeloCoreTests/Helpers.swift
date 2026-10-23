@@ -51,3 +51,27 @@ func pixel(_ url: URL, x: Int, y: Int) -> (r: UInt8, g: UInt8, b: UInt8) {
     ctx.draw(img, in: CGRect(x: -x, y: -(img.height - 1 - y), width: img.width, height: img.height))
     return (px[0], px[1], px[2])
 }
+
+/// One-page PDF. `withPhoto` draws a busy 2000×2000 bitmap (shrinks ~15% — measured 2026-10-22);
+/// otherwise a single black square (shrinking makes it bigger).
+func makePDF(_ url: URL, withPhoto: Bool) {
+    var box = CGRect(x: 0, y: 0, width: 612, height: 792)
+    let ctx = CGContext(url as CFURL, mediaBox: &box, nil)!
+    ctx.beginPDFPage(nil)
+    if withPhoto {
+        let n = 2000
+        let bm = CGContext(data: nil, width: n, height: n, bitsPerComponent: 8, bytesPerRow: 0,
+                           space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+        for y in stride(from: 0, to: n, by: 4) { for x in stride(from: 0, to: n, by: 4) {
+            bm.setFillColor(red: CGFloat((x * 7 + y * 3) % 255) / 255, green: CGFloat((x ^ y) % 255) / 255,
+                            blue: CGFloat(y % 255) / 255, alpha: 1)
+            bm.fill(CGRect(x: x, y: y, width: 4, height: 4))
+        } }
+        ctx.draw(bm.makeImage()!, in: box)
+    } else {
+        ctx.setFillColor(gray: 0, alpha: 1); ctx.fill(CGRect(x: 50, y: 50, width: 100, height: 100))
+    }
+    ctx.endPDFPage(); ctx.closePDF()
+}
+
+func fileSize(_ url: URL) -> Int { (try! FileManager.default.attributesOfItem(atPath: url.path)[.size] as! Int) }
