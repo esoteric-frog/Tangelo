@@ -3,11 +3,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lil-esoteric-frog/Tangelo/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/lil-esoteric-frog/Tangelo/ci.yml?branch=main&style=flat-square&label=tests&color=F26A21" alt="Tests"></a>
+  <a href="https://github.com/esoteric-frog/Tangelo/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/esoteric-frog/Tangelo/ci.yml?branch=main&style=flat-square&label=tests&color=F26A21" alt="Tests"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20silicon-2B1A12?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 or later on Apple silicon">
   <img src="https://img.shields.io/badge/Swift-6-F26A21?style=flat-square&logo=swift&logoColor=white" alt="Swift 6">
-  <a href="https://github.com/lil-esoteric-frog/Tangelo/releases/latest"><img src="https://img.shields.io/github/v/release/lil-esoteric-frog/Tangelo?style=flat-square&color=2B1A12&label=download" alt="Latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/lil-esoteric-frog/Tangelo?style=flat-square&color=9A7B63" alt="License"></a>
+  <a href="https://github.com/esoteric-frog/Tangelo/releases/latest"><img src="https://img.shields.io/github/v/release/esoteric-frog/Tangelo?style=flat-square&color=2B1A12&label=download" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/esoteric-frog/Tangelo?style=flat-square&color=9A7B63" alt="License"></a>
 </p>
 
 <p align="center">
@@ -62,7 +62,7 @@ Prefer clicking? Drop files on the menu-bar icon, or click it and choose **Choos
 You need macOS 14 or later on Apple silicon, and the Swift 6 toolchain (Xcode or just the Command Line Tools: `xcode-select --install`).
 
 ```bash
-git clone https://github.com/lil-esoteric-frog/Tangelo.git
+git clone https://github.com/esoteric-frog/Tangelo.git
 cd Tangelo
 scripts/install.sh      # builds, copies to /Applications, starts it
 ```
@@ -72,7 +72,7 @@ Tangelo adds itself to Login Items the first time it runs from `/Applications`.
 <details>
 <summary><b>Using the release download instead</b></summary>
 
-The app on the [Releases](https://github.com/lil-esoteric-frog/Tangelo/releases) page is ad-hoc signed, not notarized. macOS will block it the first time. After you move it to `/Applications`, run:
+The app on the [Releases](https://github.com/esoteric-frog/Tangelo/releases) page is ad-hoc signed, not notarized. macOS will block it the first time. After you move it to `/Applications`, run:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Tangelo.app
