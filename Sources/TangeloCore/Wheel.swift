@@ -41,3 +41,92 @@ public struct TapDetector: Sendable {
 
     public mutating func reset() { candidate = nil; previous = [] }
 }
+
+public enum WheelGeometry {
+    /// Slice under `point` (slice 0 centred at 12 o'clock, clockwise; y-up coordinates),
+    /// or nil inside the dead zone.
+    public static func slice(at point: CGPoint, center: CGPoint, count: Int, deadZone: CGFloat) -> Int? {
+        guard count > 0 else { return nil }
+        let dx = Double(point.x - center.x), dy = Double(point.y - center.y)
+        guard hypot(dx, dy) >= Double(deadZone) else { return nil }
+        let step = 2 * Double.pi / Double(count)
+        var a = (atan2(dx, dy) + step / 2).truncatingRemainder(dividingBy: 2 * .pi)  // 0 = up, clockwise
+        if a < 0 { a += 2 * .pi }
+        return Int(a / step) % count
+    }
+
+    /// Centre angle of slice `i` in radians; 0 = up, clockwise.
+    public static func angle(of i: Int, count: Int) -> Double { 2 * .pi * Double(i) / Double(count) }
+}
+
+public enum FileAction: String, CaseIterable, Sendable {
+    case airDrop, copyFiles, copyPaths, terminal, showInFinder
+
+    public var title: String {
+        switch self {
+        case .airDrop: "AirDrop"
+        case .copyFiles: "Copy Files"
+        case .copyPaths: "Copy Paths"
+        case .terminal: "Open in Terminal"
+        case .showInFinder: "Show in Finder"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .airDrop: "dot.radiowaves.left.and.right"
+        case .copyFiles: "doc.on.doc"
+        case .copyPaths: "link"
+        case .terminal: "terminal"
+        case .showInFinder: "folder"
+        }
+    }
+
+    public static func paths(_ files: [URL]) -> String { files.map(\.path).joined(separator: "\n") }
+
+    /// The first item if it is a folder, else the folder containing it.
+    public static func terminalFolder(for files: [URL]) -> URL? {
+        guard let first = files.first else { return nil }
+        let isDir = (try? first.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+        return isDir ? first : first.deletingLastPathComponent()
+    }
+}
+
+public enum WheelChoice: Hashable, Sendable {
+    case format(Format)
+    case action(FileAction)
+
+    public var title: String {
+        switch self { case .format(let f): f.name; case .action(let a): a.title }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .action(let a): a.symbol
+        case .format(let f):
+            switch f.name {
+            case "Compress": "arrow.down.right.and.arrow.up.left"
+            case "Resize 50%": "aspectratio"
+            default: f.type.conforms(to: .pdf) ? "doc" : "photo"
+            }
+        }
+    }
+}
+
+public struct WheelMenus: Sendable {
+    public let conversion: Registry
+    public let tools: Registry
+
+    public init(conversion: Registry, tools: Registry) {
+        self.conversion = conversion
+        self.tools = tools
+    }
+
+    public func choices(_ kind: WheelKind, for files: [URL]) -> [WheelChoice] {
+        switch kind {
+        case .conversion: conversion.choices(for: files).map(WheelChoice.format)
+        case .tools: tools.choices(for: files).map(WheelChoice.format)
+        case .actions: files.isEmpty ? [] : FileAction.allCases.map(WheelChoice.action)
+        }
+    }
+}
