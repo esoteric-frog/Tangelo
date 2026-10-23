@@ -57,12 +57,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: queue, drop: drop,
             onPick: { [weak self] f in self?.pick(f) },
             onChooseFiles: { [weak self] in self?.chooseFiles() }))
-        watcher.onTap = { [weak self] key, files in
+        watcher.onHold = { [weak self] key, files in
             guard let self else { return }
             let kind = WheelKind.opened(by: key)
-            log.notice("tap \(String(describing: key), privacy: .public) with \(files.count) files")
+            log.notice("hold \(String(describing: key), privacy: .public) with \(files.count) files")
             wheel.open(kind: kind, choices: menus.choices(kind, for: files), at: NSEvent.mouseLocation)
         }
+        watcher.onRelease = { [weak self] in self?.wheel.closeSoon() }
         watcher.onDragEnd = { [weak self] in self?.wheel.closeSoon() }
         wheel.onChoose = { [weak self] choice, files in
             guard let self else { return }

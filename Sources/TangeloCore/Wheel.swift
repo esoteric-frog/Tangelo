@@ -16,30 +16,29 @@ public enum WheelKind: String, Sendable, CaseIterable {
     }
 }
 
-/// Turns samples of "which wheel keys are down" into taps:
-/// one key pressed alone and released within `maxTap`.
-public struct TapDetector: Sendable {
-    public var maxTap: TimeInterval
-    private var candidate: (key: WheelKey, at: Date)?
-    private var previous: Set<WheelKey> = []
+public enum HoldEvent: Equatable, Sendable { case open(WheelKey), close }
 
-    public init(maxTap: TimeInterval = 0.5) { self.maxTap = maxTap }
+/// Turns samples of "which wheel keys are down" into open/close events:
+/// a wheel opens once one key has been held alone for `delay`, and closes when that changes.
+public struct HoldDetector: Sendable {
+    public var delay: TimeInterval
+    private var since: (key: WheelKey, at: Date)?
+    private var openKey: WheelKey?
 
-    public mutating func update(_ down: Set<WheelKey>, at now: Date) -> WheelKey? {
-        defer { previous = down }
-        if down.count > 1 { candidate = nil; return nil }
-        if let key = down.first, !previous.contains(key) {
-            candidate = previous.isEmpty ? (key, now) : nil
-            return nil
-        }
-        if down.isEmpty, let c = candidate {
-            candidate = nil
-            return previous == [c.key] && now.timeIntervalSince(c.at) <= maxTap ? c.key : nil
+    public init(delay: TimeInterval = 0.15) { self.delay = delay }
+
+    public mutating func update(_ down: Set<WheelKey>, at now: Date) -> HoldEvent? {
+        let alone = down.count == 1 ? down.first : nil
+        if since?.key != alone { since = alone.map { ($0, now) } }
+        if let k = openKey, alone != k { openKey = nil; return .close }
+        if openKey == nil, let s = since, now.timeIntervalSince(s.at) >= delay {
+            openKey = s.key
+            return .open(s.key)
         }
         return nil
     }
 
-    public mutating func reset() { candidate = nil; previous = [] }
+    public mutating func reset() { since = nil; openKey = nil }
 }
 
 public enum WheelGeometry {
