@@ -16,14 +16,14 @@
 </p>
 
 <p align="center">
-  <a href="https://lil-esoteric-frog.github.io/Tangelo/"><img src="https://img.shields.io/badge/▶%20Try%20it%20in%20your%20browser-F26A21?style=for-the-badge" alt="Try it in your browser"></a>
+  <a href="https://esoteric-frog.github.io/Tangelo/"><img src="https://img.shields.io/badge/▶%20Try%20it%20in%20your%20browser-F26A21?style=for-the-badge" alt="Try it in your browser"></a>
 </p>
 
 ---
 
 ## Try it first
 
-No Mac needed. The [**try-it page**](https://lil-esoteric-frog.github.io/Tangelo/) has a sample photo. Drag it, hold <kbd>⌃</kbd>, and drop it on a slice. You get a real converted file to download. You can use your own image too, and it never leaves your browser. On a phone, tap the photo, then tap a key button.
+No Mac needed. The [**try-it page**](https://esoteric-frog.github.io/Tangelo/) has a sample photo. Drag it, hold <kbd>⌃</kbd>, and drop it on a slice. You get a real converted file to download. You can use your own image too, and it never leaves your browser. On a phone, tap the photo, then tap a key button.
 
 ## Three wheels, one per key
 
