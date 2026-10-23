@@ -1,4 +1,5 @@
 import AppKit
+import os
 import SwiftUI
 import TangeloCore
 
@@ -35,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PDFShrinkConverter(),
     ])
     lazy var queue = JobQueue(registry: registry)
+    let watcher = DragWatcher()
+    let log = Logger(subsystem: "io.github.lil-esoteric-frog.Tangelo", category: "wheel")
 
     func applicationDidFinishLaunching(_ note: Notification) {
         let button = statusItem.button!
@@ -51,6 +54,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: queue, drop: drop,
             onPick: { [weak self] f in self?.pick(f) },
             onChooseFiles: { [weak self] in self?.chooseFiles() }))
+        watcher.onTap = { [weak self] key, files in
+            self?.log.notice("tap \(String(describing: key), privacy: .public) with \(files.count) files")
+        }
+        watcher.start()
     }
 
     func received(_ urls: [URL]) {
