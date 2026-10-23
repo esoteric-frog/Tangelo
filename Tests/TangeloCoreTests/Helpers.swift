@@ -75,3 +75,15 @@ func makePDF(_ url: URL, withPhoto: Bool) {
 }
 
 func fileSize(_ url: URL) -> Int { (try! FileManager.default.attributesOfItem(atPath: url.path)[.size] as! Int) }
+
+/// Random-noise image: lossy re-encoding at lower quality reliably shrinks it.
+func makeNoise(_ url: URL, type: UTType, width: Int, height: Int) {
+    var bytes = [UInt8](repeating: 0, count: width * height * 4)
+    for i in bytes.indices { bytes[i] = i % 4 == 3 ? 255 : UInt8.random(in: 0...255) }
+    let ctx = CGContext(data: &bytes, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                        space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+    let dst = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil)!
+    CGImageDestinationAddImage(dst, ctx.makeImage()!, [kCGImageDestinationLossyCompressionQuality: 0.95] as CFDictionary)
+    precondition(CGImageDestinationFinalize(dst))
+}

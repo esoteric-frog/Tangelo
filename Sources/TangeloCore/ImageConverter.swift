@@ -42,19 +42,7 @@ public struct ImageConverter: Converter {
         }
     }
 
-    /// Full-size image with EXIF orientation applied to the pixels.
-    func upright(_ src: CGImageSource) throws -> CGImage {
-        let p = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] ?? [:]
-        let maxSide = max(p[kCGImagePropertyPixelWidth] as? Int ?? 0, p[kCGImagePropertyPixelHeight] as? Int ?? 0)
-        let opts: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxSide,
-        ]
-        guard let img = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
-        else { throw TangeloError("Couldn't decode the image") }
-        return img
-    }
+    func upright(_ src: CGImageSource) throws -> CGImage { try uprightImage(src, maxSide: nil) }
 
     func hasAlpha(_ src: CGImageSource) -> Bool {
         (CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any])?[kCGImagePropertyHasAlpha] as? Bool ?? false
@@ -78,4 +66,22 @@ public struct ImageConverter: Converter {
         CGImageDestinationAddImage(dst, img, properties as CFDictionary)
         guard CGImageDestinationFinalize(dst) else { throw TangeloError("Couldn't write \(url.lastPathComponent)") }
     }
+}
+
+/// Image with EXIF orientation applied to the pixels; `maxSide` nil = full size.
+func uprightImage(_ src: CGImageSource, maxSide: Int?) throws -> CGImage {
+    let p = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] ?? [:]
+    let full = max(p[kCGImagePropertyPixelWidth] as? Int ?? 0, p[kCGImagePropertyPixelHeight] as? Int ?? 0)
+    let opts: [CFString: Any] = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceThumbnailMaxPixelSize: max(1, maxSide ?? full),
+    ]
+    guard let img = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
+    else { throw TangeloError("Couldn't decode the image") }
+    return img
+}
+
+func byteCount(of url: URL) -> Int {
+    (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
 }

@@ -19,7 +19,7 @@ let c = CGPoint(x: 100, y: 100)  // AppKit coords: y up
 }
 
 let menus = WheelMenus(conversion: Registry([ImageConverter(binDir: binDir), PDFShrinkConverter()]),
-                       tools: Registry([PDFShrinkConverter()]))
+                       tools: Registry([ImageToolConverter(), PDFShrinkConverter()]))
 
 @Test func conversionWheelListsFormats() {
     let ch = menus.choices(.conversion, for: [URL(fileURLWithPath: "/a.png")])
@@ -46,4 +46,9 @@ let menus = WheelMenus(conversion: Registry([ImageConverter(binDir: binDir), PDF
     #expect(FileAction.terminalFolder(for: [file])?.standardizedFileURL == dir.standardizedFileURL)
     #expect(FileAction.terminalFolder(for: [dir])?.standardizedFileURL == dir.standardizedFileURL)
     #expect(FileAction.terminalFolder(for: []) == nil)
+}
+
+@Test func toolsWheelForPhotoAndPDF() {
+    #expect(menus.choices(.tools, for: [URL(fileURLWithPath: "/a.jpg")]) == [.format(.compress), .format(.halfSize)])
+    #expect(menus.choices(.tools, for: [URL(fileURLWithPath: "/a.pdf")]) == [.format(.smallPDF)])
 }
