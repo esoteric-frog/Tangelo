@@ -176,6 +176,6 @@ def social():
 
 if __name__ == "__main__":
     for name, text in [("hero.svg", hero()), ("wheels.svg", wheels()),
-                       ("source/social-card.svg", social()), ("footer.svg", footer())]:
+                       ("source/social-card.svg", social()), ("footer.svg", footer()), ("../../docs/icon.svg", footer())]:  # docs/ = try-it page; Pages serves only that folder
         (OUT / name).write_text(text)
         print("wrote", OUT / name)

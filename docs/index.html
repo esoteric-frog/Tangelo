@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Try Tangelo — the drag wheel, in your browser</title>
+<meta name="description" content="Drag a sample photo, hold a key, drop it on a slice. A browser copy of the Tangelo Mac app's wheel that really converts the file.">
+<meta property="og:title" content="Try Tangelo in your browser">
+<meta property="og:description" content="Drag a file. Hold ⌃. Drop it on a slice.">
+<meta property="og:image" content="https://raw.githubusercontent.com/lil-esoteric-frog/Tangelo/main/assets/readme/social-preview.png">
+<link rel="icon" href="icon.svg">
+<style>
+  :root { --bg:#FFF6EC; --ink:#2B1A12; --orange:#F26A21; --peel:#FFE2C7; --muted:#9A7B63; --line:#EBD3BC;
+          --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+          --mono:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 var(--sans); }
+  main { max-width:1040px; margin:0 auto; padding:32px 20px 64px; }
+  header { display:flex; align-items:center; gap:14px; }
+  header img { width:44px; height:44px; }
+  h1 { font-size:40px; letter-spacing:-1px; margin:0; line-height:1; }
+  header a { margin-left:auto; color:var(--muted); font-size:15px; }
+  .eyebrow { font:14px var(--mono); letter-spacing:2px; color:var(--orange); text-transform:uppercase; margin:28px 0 6px; }
+  ol.steps { display:flex; flex-wrap:wrap; gap:10px 28px; padding:0; margin:0 0 18px; list-style:none; font-size:20px; font-weight:650; }
+  ol.steps li b { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--orange);
+                  color:#fff; font-size:15px; margin-right:8px; }
+  kbd { font:600 15px var(--sans); background:#fff; border:1px solid var(--line); border-bottom-width:3px; border-radius:7px; padding:1px 8px; }
+  .layout { display:grid; grid-template-columns:1fr 300px; gap:18px; }
+  @media (max-width:820px) { .layout { grid-template-columns:1fr; } }
+  .desk { position:relative; min-height:380px; border-radius:22px; background:
+          radial-gradient(circle at 20% 15%, #FFFFFF 0, #FFF1E2 55%, #FFE9D4 100%);
+          border:1px solid var(--line); padding:22px; display:flex; flex-wrap:wrap; align-content:flex-start; gap:18px;
+          touch-action:none; user-select:none; -webkit-user-select:none; }
+  .desk.over { outline:3px dashed var(--orange); outline-offset:-10px; }
+  .file { width:132px; padding:10px 8px 8px; border-radius:14px; text-align:center; cursor:grab; outline:none; }
+  .file:hover, .file:focus-visible, .file.selected { background:rgba(242,106,33,.10); }
+  .file.selected { box-shadow:inset 0 0 0 2px var(--orange); }
+  .file.new { animation:pop .35s ease-out; }
+  @keyframes pop { from { transform:scale(.7); opacity:0; } }
+  .file img { width:112px; height:84px; object-fit:cover; border-radius:8px; box-shadow:0 2px 6px rgba(43,26,18,.18); pointer-events:none; }
+  .file .name { font:13px var(--mono); margin-top:6px; word-break:break-all; }
+  .file .size { font-size:12px; color:var(--muted); }
+  .hint { position:absolute; left:22px; right:22px; bottom:16px; color:var(--muted); font-size:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .hint button, .pills button { font:600 14px var(--sans); color:var(--ink); background:#fff; border:1px solid var(--line);
+          border-radius:999px; padding:6px 12px; cursor:pointer; }
+  .hint button:hover, .pills button:hover { border-color:var(--orange); }
+  .pills { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0 0; font-size:14px; color:var(--muted); }
+  .pills button[aria-pressed="true"] { background:var(--orange); border-color:var(--orange); color:#fff; }
+  .panel { border-radius:18px; background:#fff; border:1px solid var(--line); padding:14px 16px; align-self:start; }
+  .panel h2 { font-size:15px; margin:0 0 8px; display:flex; align-items:center; gap:8px; }
+  .panel h2 img { width:18px; }
+  .job { display:grid; grid-template-columns:1fr auto; gap:2px 8px; padding:8px 0; border-top:1px solid #F4E6D8; font-size:14px; }
+  .job .what { font-family:var(--mono); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .job .state { color:var(--muted); }
+  .job .state.ok { color:#1F8A4C; } .job .state.bad { color:#C0392B; }
+  .job .msg { grid-column:1/-1; color:#C0392B; font-size:13px; }
+  .job a { grid-column:1/-1; color:var(--orange); font-weight:600; font-size:13px; }
+  .empty { color:var(--muted); font-size:14px; margin:4px 0; }
+  .ghost { position:fixed; z-index:5; pointer-events:none; width:96px; transform:translate(-30%,-30%) rotate(-4deg); opacity:.92; }
+  .ghost img { width:96px; height:72px; object-fit:cover; border-radius:8px; box-shadow:0 10px 24px rgba(43,26,18,.3); }
+  .wheel { position:fixed; z-index:10; width:340px; height:340px; margin:-170px 0 0 -170px; border-radius:50%;
+           background:rgba(43,26,18,.10); box-shadow:0 24px 60px rgba(43,26,18,.28), inset 0 0 0 1px rgba(255,255,255,.6);
+           backdrop-filter:blur(16px) saturate(1.5); -webkit-backdrop-filter:blur(16px) saturate(1.5);
+           animation:open .16s ease-out; }
+  @keyframes open { from { transform:scale(.85); opacity:0; } }
+  .wheel.closing { opacity:.45; transition:opacity .3s; }
+  .wheel svg { display:block; overflow:visible; }
+  .wheel .slice { fill:#FFFBF6; stroke:#FFFBF6; stroke-width:24; stroke-linejoin:round; transition:fill .08s, stroke .08s; }
+  .wheel .slice.hot { fill:var(--orange); stroke:var(--orange); }
+  .wheel .slice.mac { fill:#F3E6D8; stroke:#F3E6D8; }
+  .wheel .slice.mac.hot { fill:var(--muted); stroke:var(--muted); }
+  .wheel text .sub { font-size:11px; font-weight:600; fill:var(--muted); }
+  .wheel text.hot .sub { fill:#fff; }
+  .wheel text { font:700 14px var(--sans); fill:var(--ink); pointer-events:none; text-anchor:middle; }
+  .wheel text.hot { fill:#fff; }
+  .wheel .center { font-size:15px; fill:var(--orange); }
+  .wheel .center.idle { fill:var(--muted); }
+  .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 16px;
+           border-radius:12px; font-size:15px; max-width:min(560px, 92vw); z-index:30; animation:pop .2s ease-out; }
+  .notes { margin-top:28px; color:var(--muted); font-size:14px; }
+  .notes a { color:var(--orange); }
+  .cta { display:inline-block; margin-top:10px; background:var(--ink); color:#fff; text-decoration:none; font-weight:700;
+         padding:10px 18px; border-radius:12px; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.svg" alt="">
+    <h1>Tangelo</h1>
+    <a href="https://github.com/lil-esoteric-frog/Tangelo">GitHub ↗</a>
+  </header>
+
+  <p class="eyebrow">Try the wheel</p>
+  <ol class="steps">
+    <li><b>1</b>Drag the photo</li>
+    <li><b>2</b>Hold <kbd>⌃</kbd>, <kbd>⌘</kbd> or <kbd>⌥</kbd></li>
+    <li><b>3</b>Let go on a slice</li>
+  </ol>
+
+  <div class="layout">
+    <div>
+      <div class="desk" id="desk" aria-label="Desktop with files. Drag a file and hold Control, Command or Option.">
+        <div class="hint">
+          <span>Your own image works too. It never leaves this page.</span>
+          <button type="button" id="choose">Choose image…</button>
+          <input type="file" id="picker" accept="image/*" hidden>
+        </div>
+      </div>
+      <div class="pills" role="group" aria-label="No keyboard? Tap a key">
+        <span>No keyboard? Tap a file, then a key:</span>
+        <button type="button" data-key="Control" aria-pressed="false">⌃ Convert</button>
+        <button type="button" data-key="Meta" aria-pressed="false">⌘ Tools</button>
+        <button type="button" data-key="Alt" aria-pressed="false">⌥ Actions</button>
+      </div>
+    </div>
+    <aside class="panel" aria-live="polite">
+      <h2><img src="icon.svg" alt="">Menu bar</h2>
+      <p class="empty" id="empty">Results show up here.</p>
+      <div id="jobs"></div>
+    </aside>
+  </div>
+
+  <div class="notes">
+    <p>This page runs the same wheel rules as the app: a key held alone for 0.15 s opens its wheel, the wheel waits 0.4 s after you let go,
+       and a drop in the middle does nothing. Conversions are real and happen in your browser. The Mac app also writes TIFF and HEIC,
+       shrinks PDFs, and its Actions wheel really opens AirDrop, Terminal and Finder.</p>
+    <a class="cta" href="https://github.com/lil-esoteric-frog/Tangelo/releases/latest">Get the Mac app</a>
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const desk = $("#desk"), jobsEl = $("#jobs");
+const KEY_TO_WHEEL = { Control: "convert", Meta: "tools", Alt: "actions" };
+const CENTER = { convert: "Convert", tools: "Tools", actions: "Actions" };
+const HOLD_MS = 150, CLOSE_MS = 400, DEAD = 50, R_IN = 50, R_OUT = 165;
+const files = [];  // { name, blob, mime, url, el }
+
+// ---------- formats this browser can really write ----------
+const FORMATS = [["JPG", "image/jpeg", "jpg"], ["PNG", "image/png", "png"], ["HEIC", "image/heic", "heic"],
+                 ["AVIF", "image/avif", "avif"], ["WebP", "image/webp", "webp"], ["TIFF", "image/tiff", "tiff"]];  // ImageConverter.all order
+const probe = document.createElement("canvas"); probe.width = probe.height = 2;
+const WRITABLE = new Set(FORMATS.map((f) => f[1]).filter((m) => probe.toDataURL(m).startsWith("data:" + m)));
+const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif", "image/gif": "gif", "image/bmp": "bmp" };
+
+// ---------- the wheel menus (mirrors WheelMenus in the app) ----------
+function choices(kind, f) {
+  if (!f.mime.startsWith("image/")) return [];
+  if (kind === "convert")
+    return FORMATS.filter(([, m]) => m !== f.mime).map(([label, m, ext]) => WRITABLE.has(m)
+      ? { label, run: () => encode(f, m, base(f.name) + "." + ext, 1, 0.92) }
+      : { label, mac: true, action: () => toast(`Browsers can't write ${label}. The Mac app can.`) });
+  if (kind === "tools") {
+    if (!WRITABLE.has(f.mime)) return [];
+    const e = "." + ext(f.name);
+    return [
+      { label: "Compress", run: async () => {
+          const out = await encode(f, f.mime, base(f.name) + " (compressed)" + e, 1, 0.6);
+          if (out.size >= f.blob.size) throw new Error(f.name + " is already as small as it gets — nothing saved");
+          return out; } },
+      { label: "Resize 50%", run: () => encode(f, f.mime, base(f.name) + " (50%)" + e, 0.5, 0.85) },
+    ];
+  }
+  const say = (what) => () => toast("In the Mac app, this " + what + ".");
+  return [
+    { label: "AirDrop", action: say("opens AirDrop with " + f.name) },
+    { label: "Copy Files", action: say("copies " + f.name + " so you can paste it in Finder") },
+    { label: "Copy Paths", action: () => copyText("~/Desktop/" + f.name) },
+    { label: "Open in Terminal", action: say("opens Terminal in the file's folder") },
+    { label: "Show in Finder", action: () => { select(f); toast("Here it is. The Mac app opens a Finder window."); } },
+  ];
+}
+const base = (n) => n.replace(/\.[^.]+$/, "");
+const ext = (n) => (n.match(/\.([^.]+)$/) || [, ""])[1];
+
+function uniqueName(name) {  // OutputNamer: photo.jpg, photo 2.jpg, photo 3.jpg…
+  const taken = new Set(files.map((f) => f.name));
+  if (!taken.has(name)) return name;
+  for (let i = 2; ; i++) { const n = `${base(name)} ${i}.${ext(name)}`; if (!taken.has(n)) return n; }
+}
+
+async function encode(f, mime, name, scale, quality) {
+  const bmp = await createImageBitmap(f.blob);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(bmp.width * scale)); c.height = Math.max(1, Math.round(bmp.height * scale));
+  const g = c.getContext("2d");
+  if (mime === "image/jpeg") { g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }  // JPG has no transparency
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise((ok) => c.toBlob(ok, mime, quality));
+  if (!blob) throw new Error("This browser couldn't write " + name);
+  return new File([blob], uniqueName(name), { type: mime });
+}
+
+// ---------- files on the desk ----------
+function addFile(blob, name, fresh) {
+  const f = { name, blob, mime: blob.type, url: URL.createObjectURL(blob) };
+  const el = document.createElement("div");
+  el.className = "file" + (fresh ? " new" : ""); el.tabIndex = 0; el.setAttribute("role", "button");
+  el.setAttribute("aria-label", `${name}, ${size(blob.size)}. Drag it, or press Enter then a key.`);
+  el.innerHTML = `<img alt=""><div class="name"></div><div class="size"></div>`;
+  el.querySelector("img").src = f.url;
+  el.querySelector(".name").textContent = name;
+  el.querySelector(".size").textContent = size(blob.size);
+  f.el = el; files.push(f);
+  desk.insertBefore(el, desk.querySelector(".hint"));
+  el.addEventListener("pointerdown", (e) => startPress(e, f));
+  el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(f); } });
+  el.addEventListener("focus", () => select(f));
+  return f;
+}
+const size = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(0) + " KB" : (n / 1048576).toFixed(1) + " MB";
+
+let selected = null;
+function select(f) {
+  files.forEach((x) => x.el.classList.toggle("selected", x === f));
+  selected = f;
+}
+
+// ---------- keys: a wheel opens when ONE key is held alone (HoldDetector) ----------
+const down = new Set();
+let pill = null;   // touch stand-in for a held key
+let holdTimer = 0;
+function heldKind() {
+  const ks = new Set(down); if (pill) ks.add(pill);
+  return ks.size === 1 ? KEY_TO_WHEEL[[...ks][0]] : null;
+}
+function keysChanged() {
+  const kind = heldKind();
+  clearTimeout(holdTimer);
+  if (wheel && !wheel.sticky && kind !== wheel.kind) closeSoon();  // a clicked-open wheel stays until Esc or a click
+  if (!kind || (wheel && wheel.kind === kind && !wheel.closing)) return;
+  const go = () => {
+    if (drag) { if (drag.moved) openWheel(kind, drag.x, drag.y, false); }  // only a real drag opens at the pointer
+    else if (selected) { const r = selected.el.getBoundingClientRect(); openWheel(kind, r.left + r.width / 2, r.top + r.height / 2, true); }
+  };
+  if (drag) holdTimer = setTimeout(go, HOLD_MS); else go();
+}
+addEventListener("keydown", (e) => {
+  if (wheel && wheel.sticky && navKey(e)) return;
+  if (!(e.key in KEY_TO_WHEEL) || e.repeat) return;
+  if (!drag && !selected) return;
+  down.add(e.key); keysChanged();
+});
+addEventListener("keyup", (e) => { if (down.delete(e.key)) keysChanged(); });
+addEventListener("blur", () => { down.clear(); keysChanged(); });
+document.querySelectorAll(".pills button").forEach((b) => b.addEventListener("click", () => {
+  pill = pill === b.dataset.key ? null : b.dataset.key;
+  syncPills();
+  if (!drag && !selected) { pill = null; syncPills(); toast("Tap a file first."); return; }
+  keysChanged();
+}));
+function syncPills() { document.querySelectorAll(".pills button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.key === pill))); }
+
+// ---------- dragging (pointer events, so keys still work mid-drag) ----------
+let drag = null;   // { f, x, y, sx, sy, moved, ghost }
+function startPress(e, f) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  if (wheel && wheel.sticky) closeWheel();
+  select(f);
+  drag = { f, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, ghost: null };
+  desk.setPointerCapture(e.pointerId);
+}
+desk.addEventListener("contextmenu", (e) => e.preventDefault());  // Control-click on a Mac
+desk.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  drag.x = e.clientX; drag.y = e.clientY;
+  if (!drag.moved && Math.hypot(drag.x - drag.sx, drag.y - drag.sy) > 6) {
+    drag.moved = true;
+    drag.ghost = document.createElement("div"); drag.ghost.className = "ghost";
+    drag.ghost.innerHTML = `<img alt="" src="${drag.f.url}">`;
+    document.body.append(drag.ghost);
+    keysChanged();  // a key may already be held
+  }
+  if (drag.ghost) { drag.ghost.style.left = drag.x + "px"; drag.ghost.style.top = drag.y + "px"; }
+  if (wheel) hover(sliceAt(drag.x, drag.y));
+});
+desk.addEventListener("pointerup", endDrag);
+desk.addEventListener("pointercancel", () => { if (drag) { drag.ghost?.remove(); drag = null; closeWheel(); } });
+function endDrag() {
+  if (!drag) return;
+  const d = drag; drag = null; d.ghost?.remove();
+  clearTimeout(holdTimer);
+  if (!d.moved) { if (pill) keysChanged(); return; }  // a tap: the file stays selected for the key pills
+  const pick = wheel && !wheel.sticky ? wheel.hot : null;
+  const list = wheel ? wheel.list : [];
+  closeWheel();
+  pill = null; syncPills();
+  if (pick != null) choose(list[pick], d.f);
+}
+
+// ---------- the wheel ----------
+let wheel = null;  // { kind, el, list, hot, cx, cy, sticky, closing, timer }
+function slicePath(i, n, c, inner, outer, gap, corner) {  // same outline as WheelGeometry.slicePath
+  if (n === 1) return `M${c} ${c - outer}A${outer} ${outer} 0 1 1 ${c - 0.01} ${c - outer}ZM${c} ${c - inner}A${inner} ${inner} 0 1 0 ${c + 0.01} ${c - inner}Z`;
+  const ri = inner + corner, ro = outer - corner, d = gap / 2 + corner, step = 2 * Math.PI / n, mid = step * i;
+  const pt = (r, a) => `${(c + r * Math.sin(a)).toFixed(1)} ${(c - r * Math.cos(a)).toFixed(1)}`;
+  const span = (r) => { const off = Math.asin(Math.min(1, d / r)); return [mid - step / 2 + off, mid + step / 2 - off]; };
+  const [o0, o1] = span(ro), [i0, i1] = span(ri);
+  return `M${pt(ro, o0)}A${ro} ${ro} 0 ${o1 - o0 > Math.PI ? 1 : 0} 1 ${pt(ro, o1)}L${pt(ri, i1)}A${ri} ${ri} 0 0 0 ${pt(ri, i0)}Z`;
+}
+function openWheel(kind, x, y, sticky) {
+  closeWheel();
+  const pad = 172;  // keep the whole wheel on screen (phones are narrower than the wheel's reach)
+  x = Math.min(Math.max(x, pad), Math.max(pad, innerWidth - pad)); y = Math.min(Math.max(y, pad), Math.max(pad, innerHeight - pad));
+  const f = drag ? drag.f : selected;
+  const list = choices(kind, f), n = list.length, C = 170;
+  const el = document.createElement("div"); el.className = "wheel"; el.style.left = x + "px"; el.style.top = y + "px";
+  el.setAttribute("role", "menu"); el.setAttribute("aria-label", CENTER[kind] + " wheel");
+  let svg = `<svg width="340" height="340" viewBox="0 0 340 340">`;
+  list.forEach((ch, i) => {
+    const a = 2 * Math.PI * i / n, r = n === 1 ? 108 : (R_IN + R_OUT) / 2 + 4;
+    const words = ch.label.split(" "), lines = words.length > 1 && ch.label.length > 9 ? [words.slice(0, -1).join(" "), words.at(-1)] : [ch.label];
+    svg += `<path class="slice${ch.mac ? " mac" : ""}" data-i="${i}" role="menuitem" aria-label="${esc(ch.label)}" d="${slicePath(i, n, C, R_IN, R_OUT, 8, 12)}"/>`;
+    const tx = C + r * Math.sin(a), ty = C - r * Math.cos(a) - (lines.length - 1) * 8 + 5;
+    svg += `<text data-i="${i}" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}">${lines.map((l, k) => `<tspan x="${tx.toFixed(1)}" dy="${k ? 16 : 0}">${esc(l)}</tspan>`).join("")}${ch.mac ? `<tspan class="sub" x="${tx.toFixed(1)}" dy="15">Mac app</tspan>` : ""}</text>`;
+  });
+  if (n) svg += `<circle cx="${C}" cy="${C}" r="${R_IN - 6}" fill="#FFF6EC"/>`;  // solid hub so the name reads over the dragged photo
+  svg += `<text class="center idle" x="${C}" y="${C + 5}">${n ? CENTER[kind] : ""}</text></svg>`;
+  el.innerHTML = svg;
+  if (!n) { el.querySelector(".center").remove(); el.insertAdjacentHTML("beforeend",
+    `<div style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:70px;font-weight:700;color:var(--muted)">Nothing to do for these files</div>`); }
+  document.body.append(el);
+  wheel = { kind, el, list, hot: null, cx: x, cy: y, sticky, closing: false, timer: 0 };
+  if (sticky) {
+    el.addEventListener("pointermove", (e) => hover(sliceAt(e.clientX, e.clientY)));
+    el.addEventListener("click", (e) => { const i = sliceAt(e.clientX, e.clientY); if (i != null) { const l = wheel.list; closeWheel(); choose(l[i], selected); } });
+    if (n) hover(0);
+  }
+}
+function sliceAt(x, y) {  // WheelGeometry.slice(at:): 0 at 12 o'clock, clockwise; nil in the dead zone or off the wheel
+  if (!wheel || !wheel.list.length) return null;
+  const dx = x - wheel.cx, dy = wheel.cy - y, dist = Math.hypot(dx, dy);
+  if (dist < DEAD || dist > R_OUT + 20) return null;
+  const n = wheel.list.length, step = 2 * Math.PI / n;
+  let a = (Math.atan2(dx, dy) + step / 2) % (2 * Math.PI); if (a < 0) a += 2 * Math.PI;
+  return Math.floor(a / step) % n;
+}
+function hover(i) {
+  if (!wheel || wheel.hot === i) return;
+  wheel.hot = i;
+  wheel.el.querySelectorAll("[data-i]").forEach((s) => s.classList.toggle("hot", Number(s.dataset.i) === i));
+  const c = wheel.el.querySelector(".center");
+  if (c) { c.textContent = i == null ? CENTER[wheel.kind] : wheel.list[i].label; c.classList.toggle("idle", i == null); }
+}
+function closeSoon() {  // the app waits 0.4 s so a drop right after letting go still lands
+  if (!wheel || wheel.closing) return;
+  if (wheel.sticky) return closeWheel();
+  wheel.closing = true; wheel.el.classList.add("closing");
+  wheel.timer = setTimeout(closeWheel, CLOSE_MS);
+}
+function closeWheel() { if (wheel) { clearTimeout(wheel.timer); wheel.el.remove(); wheel = null; } }
+function navKey(e) {
+  const n = wheel.list.length;
+  if (e.key === "Escape") { closeWheel(); return true; }
+  if (!n) return false;
+  if (["ArrowRight", "ArrowDown"].includes(e.key)) { hover(((wheel.hot ?? -1) + 1) % n); e.preventDefault(); return true; }
+  if (["ArrowLeft", "ArrowUp"].includes(e.key)) { hover(((wheel.hot ?? 1) - 1 + n) % n); e.preventDefault(); return true; }
+  if (e.key === "Enter" && wheel.hot != null) { const ch = wheel.list[wheel.hot]; closeWheel(); choose(ch, selected); e.preventDefault(); return true; }
+  return false;
+}
+document.addEventListener("pointerdown", (e) => { if (wheel && wheel.sticky && !wheel.el.contains(e.target) && !e.target.closest(".pills")) closeWheel(); });
+
+// ---------- running a choice (JobQueue + panel) ----------
+async function choose(ch, f) {
+  pill = null; syncPills();
+  if (!ch || !f) return;
+  if (ch.action) return ch.action();
+  $("#empty").hidden = true;
+  const row = document.createElement("div"); row.className = "job";
+  row.innerHTML = `<span class="what"></span><span class="state">working…</span>`;
+  row.querySelector(".what").textContent = `${f.name} → ${ch.label}`;
+  jobsEl.prepend(row);
+  try {
+    const out = await ch.run();
+    const nf = addFile(out, out.name, true);
+    row.querySelector(".state").textContent = "done"; row.querySelector(".state").className = "state ok";
+    const a = document.createElement("a"); a.href = nf.url; a.download = out.name;
+    a.textContent = `Download ${out.name} (${size(out.size)})`;
+    row.append(a);
+  } catch (err) {
+    row.querySelector(".state").textContent = "failed"; row.querySelector(".state").className = "state bad";
+    const m = document.createElement("span"); m.className = "msg"; m.textContent = err.message; row.append(m);
+  }
+}
+
+// ---------- small helpers ----------
+let toastTimer = 0;
+function toast(text) {
+  document.querySelector(".toast")?.remove(); clearTimeout(toastTimer);
+  const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = text;
+  document.body.append(t); toastTimer = setTimeout(() => t.remove(), 3200);
+}
+async function copyText(s) {
+  try { await navigator.clipboard.writeText(s); toast("Copied " + s); } catch { toast("In the Mac app, this copies " + s); }
+}
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- your own image: picked or dropped, decoded locally ----------
+async function addOwn(file) {
+  if (!file) return;
+  try { await createImageBitmap(file); }
+  catch { return toast(`Can't convert this file type (${file.name}). This page reads JPG, PNG, WebP, GIF and BMP.`); }
+  const mime = file.type || "image/" + ext(file.name).toLowerCase(), name = uniqueName(file.name);
+  select(addFile(new File([file], name, { type: mime }), name, true));
+}
+$("#choose").addEventListener("click", () => $("#picker").click());
+$("#picker").addEventListener("change", (e) => { [...e.target.files].forEach(addOwn); e.target.value = ""; });
+desk.addEventListener("dragover", (e) => { if (e.dataTransfer?.types.includes("Files")) { e.preventDefault(); desk.classList.add("over"); } });
+desk.addEventListener("dragleave", () => desk.classList.remove("over"));
+desk.addEventListener("drop", (e) => { e.preventDefault(); desk.classList.remove("over"); [...e.dataTransfer.files].forEach(addOwn); });
+
+// ---------- the sample photo, painted here so it carries no metadata ----------
+(async function sample() {
+  const c = document.createElement("canvas"); c.width = 1600; c.height = 1000;
+  const g = c.getContext("2d");
+  const sky = g.createLinearGradient(0, 0, 0, 1000);
+  sky.addColorStop(0, "#3B2A6B"); sky.addColorStop(0.45, "#F26A21"); sky.addColorStop(0.7, "#FFC47A"); sky.addColorStop(1, "#FFE2C7");
+  g.fillStyle = sky; g.fillRect(0, 0, 1600, 1000);
+  const sun = g.createRadialGradient(800, 640, 10, 800, 640, 260);
+  sun.addColorStop(0, "rgba(255,246,236,1)"); sun.addColorStop(0.35, "rgba(255,214,150,.9)"); sun.addColorStop(1, "rgba(255,214,150,0)");
+  g.fillStyle = sun; g.fillRect(0, 0, 1600, 1000);
+  [["#B9461A", 700, 0.004, 60], ["#7A2E16", 790, 0.006, 45], ["#2B1A12", 880, 0.009, 30]].forEach(([col, y0, k, amp]) => {
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, 1000);
+    for (let x = 0; x <= 1600; x += 8) g.lineTo(x, y0 + Math.sin(x * k + y0) * amp + Math.sin(x * k * 3.1) * amp * 0.3);
+    g.lineTo(1600, 1000); g.fill();
+  });
+  const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.95));
+  addFile(new File([blob], "sunset.jpg", { type: "image/jpeg" }), "sunset.jpg", false);
+})();
+</script>
+</body>
+</html>
