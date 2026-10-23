@@ -142,7 +142,7 @@ struct WheelBody: View {
                     let push: CGFloat = hot ? 7 : 0  // hovered segment slides out a little
                     ZStack {
                         Segment(index: i, count: n, inner: inner, outer: outer).clearGlass(hot: hot)
-                            .opacity(hot ? 1 : 0.55)  // fainter glass; labels below stay fully opaque
+                            .opacity(hot ? 1 : 0.75)  // fainter glass; labels below stay fully opaque
                         VStack(spacing: 3) {
                             Image(systemName: choice.symbol).font(.system(size: 17, weight: .semibold))
                             Text(choice.title).font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -163,7 +163,7 @@ struct WheelBody: View {
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .multilineTextAlignment(.center).lineLimit(3)
                     .frame(width: inner * 2 - 16, height: inner * 2 - 16)
-                    .background(Circle().clearGlass(hot: false).opacity(0.55))
+                    .background(Circle().clearGlass(hot: false).opacity(0.75))
                     .position(c)
                     .animation(.easeOut(duration: 0.12), value: centerText)
             }
