@@ -145,15 +145,14 @@ struct WheelBody: View {
                 // Glass is costly: drawn once per open, never redrawn on hover (equatable skips it).
                 GlassRing(count: n, inner: inner, outer: outer).equatable()
                 // Cheap orange layers are all that change on hover: the hovered one blooms out
-                // from the hub (scaled about the wheel centre) and glows; the last one wilts back.
+                // from the hub (scaled about the wheel centre); the last one wilts back.
                 ForEach(0..<n, id: \.self) { i in
                     let hot = model.highlighted == i
                     Segment(index: i, count: n, inner: inner, outer: outer)
                         .fill(Color.orange.opacity(0.45))
-                        .shadow(color: .orange.opacity(hot ? 0.55 : 0), radius: hot ? 10 : 0)
-                        .scaleEffect(hot ? 1 : 0.55)
+                        .scaleEffect(hot ? 1 : 0.55)  // never above 1: the bloom stops at the wheel's edge
                         .opacity(hot ? 1 : 0)
-                        .animation(hot ? .spring(response: 0.26, dampingFraction: 0.62)
+                        .animation(hot ? .spring(response: 0.26, dampingFraction: 1)  // no overshoot
                                        : .easeIn(duration: 0.12), value: hot)
                 }
                 ForEach(Array(model.choices.enumerated()), id: \.offset) { i, choice in
