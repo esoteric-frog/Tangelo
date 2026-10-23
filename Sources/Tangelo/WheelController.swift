@@ -136,37 +136,35 @@ struct WheelBody: View {
             let c = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             let n = model.choices.count
             ZStack {
+                // Glass is costly: drawn once per open, never redrawn on hover (equatable skips it).
+                GlassRing(count: n, inner: inner, outer: outer).equatable()
+                if let h = model.highlighted, h < n {  // cheap orange layer is all that changes on hover
+                    Segment(index: h, count: n, inner: inner, outer: outer)
+                        .fill(Color.orange.opacity(0.45))
+                        .transition(.opacity)
+                }
                 ForEach(Array(model.choices.enumerated()), id: \.offset) { i, choice in
                     let a = WheelGeometry.angle(of: i, count: n), mid = (inner + outer) / 2
-                    let hot = model.highlighted == i
-                    let push: CGFloat = hot ? 7 : 0  // hovered segment slides out a little
-                    ZStack {
-                        Segment(index: i, count: n, inner: inner, outer: outer).clearGlass(hot: hot)
-                            .opacity(hot ? 1 : 0.75)  // fainter glass; labels below stay fully opaque
-                        VStack(spacing: 3) {
-                            Image(systemName: choice.symbol).font(.system(size: 17, weight: .semibold))
-                            Text(choice.title).font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .lineLimit(2).minimumScaleFactor(0.75).multilineTextAlignment(.center)
-                        }
-                        .frame(width: 74)
-                        .foregroundStyle(.primary)
-                        .shadow(color: .white.opacity(0.6), radius: 2)
-                        .position(x: c.x + mid * sin(a), y: c.y - mid * cos(a))
+                    VStack(spacing: 3) {
+                        Image(systemName: choice.symbol).font(.system(size: 17, weight: .semibold))
+                        Text(choice.title).font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .lineLimit(2).minimumScaleFactor(0.75).multilineTextAlignment(.center)
                     }
-                    .offset(x: push * sin(a), y: -push * cos(a))
-                    .animation(.spring(response: 0.22, dampingFraction: 0.6), value: hot)
-                    .scaleEffect(shown ? 1 : 0.6)
-                    .opacity(shown ? 1 : 0)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.7).delay(Double(i) * 0.02), value: shown)
+                    .frame(width: 74)
+                    .foregroundStyle(.primary)
+                    .shadow(color: .white.opacity(0.6), radius: 2)
+                    .position(x: c.x + mid * sin(a), y: c.y - mid * cos(a))
                 }
                 Text(centerText)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .multilineTextAlignment(.center).lineLimit(3)
                     .frame(width: inner * 2 - 16, height: inner * 2 - 16)
-                    .background(Circle().clearGlass(hot: false).opacity(0.75))
                     .position(c)
-                    .animation(.easeOut(duration: 0.12), value: centerText)
             }
+            .animation(.easeOut(duration: 0.08), value: model.highlighted)
+            .scaleEffect(shown ? 1 : 0.7)
+            .opacity(shown ? 1 : 0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.75), value: shown)
         }
         .onAppear { DispatchQueue.main.async { shown = true } }  // next frame, so the change animates
     }
@@ -175,6 +173,26 @@ struct WheelBody: View {
         if model.choices.isEmpty { return "Nothing to do for these files" }
         if let i = model.highlighted, model.choices.indices.contains(i) { return model.choices[i].title }
         return model.kind.title
+    }
+}
+
+/// All segments plus the centre disc as one Liquid Glass group, faded once as a whole.
+struct GlassRing: View, Equatable {
+    let count: Int
+    let inner: CGFloat, outer: CGFloat
+
+    var body: some View {
+        let slices = ZStack {
+            ForEach(0..<count, id: \.self) { i in
+                Segment(index: i, count: count, inner: inner, outer: outer).clearGlass()
+            }
+            Circle().clearGlass().frame(width: inner * 2 - 16, height: inner * 2 - 16)
+        }
+        Group {
+            if #available(macOS 26, *) { GlassEffectContainer { slices } } else { slices }
+        }
+        .compositingGroup()
+        .opacity(0.75)
     }
 }
 
@@ -193,13 +211,12 @@ struct Segment: Shape {
 }
 
 extension Shape {
-    /// Colourless, very clear Liquid Glass; the hovered segment gets a light tangerine tint.
-    @ViewBuilder func clearGlass(hot: Bool) -> some View {
+    /// Colourless, very clear Liquid Glass.
+    @ViewBuilder func clearGlass() -> some View {
         if #available(macOS 26, *) {
-            Color.clear.glassEffect(hot ? .clear.tint(.orange.opacity(0.45)) : .clear, in: self)
+            Color.clear.glassEffect(.clear, in: self)
         } else {
-            fill(hot ? AnyShapeStyle(Color.orange.opacity(0.45)) : AnyShapeStyle(.ultraThinMaterial.opacity(0.6)))
-                .overlay(stroke(.white.opacity(0.35), lineWidth: 1))
+            fill(.ultraThinMaterial.opacity(0.6)).overlay(stroke(.white.opacity(0.35), lineWidth: 1))
         }
     }
 }
