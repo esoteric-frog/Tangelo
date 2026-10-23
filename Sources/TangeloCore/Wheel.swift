@@ -58,10 +58,33 @@ public enum WheelGeometry {
     /// Centre angle of slice `i` in radians; 0 = up, clockwise.
     public static func angle(of i: Int, count: Int) -> Double { 2 * .pi * Double(i) / Double(count) }
 
-    /// Diameter of each round choice on a ring, small enough that neighbours keep an 8 pt gap.
-    public static func bubbleSize(count: Int, ringRadius: CGFloat, maxSize: CGFloat) -> CGFloat {
-        guard count > 1 else { return maxSize }
-        return min(maxSize, 2 * ringRadius * sin(.pi / CGFloat(count)) - 8)
+    /// Outline of slice `i` like a tangerine segment: straight seams `gap` wide between
+    /// neighbours and every corner rounded by `corner`. y-up coordinates.
+    public static func slicePath(index i: Int, count: Int, center c: CGPoint,
+                                 inner: CGFloat, outer: CGFloat, gap: CGFloat, corner: CGFloat) -> CGPath {
+        func pt(_ r: CGFloat, _ a: Double) -> CGPoint { CGPoint(x: c.x + r * sin(a), y: c.y + r * cos(a)) }
+        let path = CGMutablePath()
+        if count == 1 {  // one choice: whole ring, inner circle wound the other way to cut the hole
+            path.addArc(center: c, radius: outer, startAngle: 0, endAngle: 2 * .pi, clockwise: false)
+            path.addArc(center: c, radius: inner, startAngle: 0, endAngle: -2 * .pi, clockwise: true)
+            return path
+        }
+        // Shrink by `corner`, then grow back with a round stroke: exact rounded corners.
+        let ri = inner + corner, ro = outer - corner, d = gap / 2 + corner
+        let step = 2 * Double.pi / Double(count), mid = angle(of: i, count: count)
+        func span(_ r: CGFloat) -> (Double, Double) {
+            let off = asin(min(1, Double(d / r)))  // keeps the seam edges parallel, not wedge-shaped
+            return (mid - step / 2 + off, mid + step / 2 - off)
+        }
+        let (o0, o1) = span(ro), (i0, i1) = span(ri)
+        // ponytail: tiny slices (many choices, small ring) vanish; shrink `corner` if formats ever pass ~16.
+        guard o1 > o0, i1 > i0 else { return path }
+        let n = 48
+        path.move(to: pt(ro, o0))
+        for k in 1...n { path.addLine(to: pt(ro, o0 + (o1 - o0) * Double(k) / Double(n))) }
+        for k in 0...n { path.addLine(to: pt(ri, i1 - (i1 - i0) * Double(k) / Double(n))) }
+        path.closeSubpath()
+        return path.union(path.copy(strokingWithWidth: 2 * corner, lineCap: .round, lineJoin: .round, miterLimit: 1))
     }
 }
 

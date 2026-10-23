@@ -131,44 +131,43 @@ struct WheelBody: View {
 
     var body: some View {
         GeometryReader { geo in
-            let outer = min(geo.size.width, geo.size.height) / 2 - 10
-            let ring = outer - 52
-            let n = model.choices.count
-            let bubble = WheelGeometry.bubbleSize(count: n, ringRadius: ring, maxSize: 84)
+            let outer = min(geo.size.width, geo.size.height) / 2 - 14
+            let inner = WheelController.deadZone
             let c = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+            let n = model.choices.count
             ZStack {
-                Circle().fill(.ultraThinMaterial)
-                    .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
-                    .frame(width: outer * 2, height: outer * 2)
                 ForEach(Array(model.choices.enumerated()), id: \.offset) { i, choice in
-                    let a = WheelGeometry.angle(of: i, count: n)
+                    let a = WheelGeometry.angle(of: i, count: n), mid = (inner + outer) / 2
                     let hot = model.highlighted == i
-                    Petal(choice: choice, tint: Self.tint(i, n), hot: hot, size: bubble)
-                        .position(x: c.x + ring * sin(a), y: c.y - ring * cos(a))
-                        .scaleEffect(shown ? 1 : 0.3, anchor: UnitPoint(x: 0.5, y: 0.5))
-                        .opacity(shown ? 1 : 0)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.65).delay(Double(i) * 0.025), value: shown)
+                    let push: CGFloat = hot ? 7 : 0  // hovered segment slides out a little
+                    ZStack {
+                        Segment(index: i, count: n, inner: inner, outer: outer).clearGlass(hot: hot)
+                        VStack(spacing: 3) {
+                            Image(systemName: choice.symbol).font(.system(size: 17, weight: .semibold))
+                            Text(choice.title).font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .lineLimit(2).minimumScaleFactor(0.75).multilineTextAlignment(.center)
+                        }
+                        .frame(width: 74)
+                        .foregroundStyle(.primary)
+                        .shadow(color: .white.opacity(0.6), radius: 2)
+                        .position(x: c.x + mid * sin(a), y: c.y - mid * cos(a))
+                    }
+                    .offset(x: push * sin(a), y: -push * cos(a))
+                    .animation(.spring(response: 0.22, dampingFraction: 0.6), value: hot)
+                    .scaleEffect(shown ? 1 : 0.6)
+                    .opacity(shown ? 1 : 0)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.7).delay(Double(i) * 0.02), value: shown)
                 }
                 Text(centerText)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .frame(maxWidth: 96)
-                    .background(Capsule().fill(.regularMaterial))
+                    .multilineTextAlignment(.center).lineLimit(3)
+                    .frame(width: inner * 2 - 16, height: inner * 2 - 16)
+                    .background(Circle().clearGlass(hot: false))
+                    .position(c)
                     .animation(.easeOut(duration: 0.12), value: centerText)
             }
-            .frame(width: geo.size.width, height: geo.size.height)
-            .scaleEffect(shown ? 1 : 0.85)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shown)
         }
         .onAppear { DispatchQueue.main.async { shown = true } }  // next frame, so the change animates
-    }
-
-    /// Soft, evenly spread hue per choice.
-    static func tint(_ i: Int, _ n: Int) -> Color {
-        Color(hue: 0.55 + Double(i) / Double(max(n, 1)) * 0.45, saturation: 0.35, brightness: 0.95)
     }
 
     var centerText: String {
@@ -178,31 +177,28 @@ struct WheelBody: View {
     }
 }
 
-/// One round choice: soft glass bubble, turns orange and grows when the pointer is over it.
-struct Petal: View {
-    let choice: WheelChoice
-    let tint: Color
-    let hot: Bool
-    let size: CGFloat
+/// One tangerine segment, drawn by the tested core outline (flipped to SwiftUI's y-down).
+struct Segment: Shape {
+    let index: Int, count: Int
+    let inner: CGFloat, outer: CGFloat
 
-    var body: some View {
-        ZStack {
-            Circle().fill(.thinMaterial)
-            Circle().fill(LinearGradient(colors: hot ? [.orange, Color(red: 1, green: 0.45, blue: 0.1)]
-                                                     : [tint.opacity(0.55), tint.opacity(0.25)],
-                                         startPoint: .top, endPoint: .bottom))
-            Circle().stroke(.white.opacity(hot ? 0.8 : 0.4), lineWidth: 1)
-            VStack(spacing: 2) {
-                Image(systemName: choice.symbol).font(.system(size: size * 0.26, weight: .semibold))
-                Text(choice.title).font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
-            }
-            .padding(6)
-            .foregroundStyle(hot ? .white : .primary)
+    func path(in rect: CGRect) -> Path {
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let cg = WheelGeometry.slicePath(index: index, count: count, center: c,
+                                         inner: inner, outer: outer, gap: 5, corner: 12)
+        let flip = CGAffineTransform(translationX: 0, y: rect.midY * 2).scaledBy(x: 1, y: -1)
+        return Path(cg).applying(flip)
+    }
+}
+
+extension Shape {
+    /// Colourless, very clear Liquid Glass; the hovered segment gets a light tangerine tint.
+    @ViewBuilder func clearGlass(hot: Bool) -> some View {
+        if #available(macOS 26, *) {
+            Color.clear.glassEffect(hot ? .clear.tint(.orange.opacity(0.45)) : .clear, in: self)
+        } else {
+            fill(hot ? AnyShapeStyle(Color.orange.opacity(0.45)) : AnyShapeStyle(.ultraThinMaterial.opacity(0.6)))
+                .overlay(stroke(.white.opacity(0.35), lineWidth: 1))
         }
-        .frame(width: size, height: size)
-        .shadow(color: hot ? .orange.opacity(0.6) : .black.opacity(0.12), radius: hot ? 10 : 3, y: hot ? 0 : 1)
-        .scaleEffect(hot ? 1.18 : 1)
-        .animation(.spring(response: 0.25, dampingFraction: 0.55), value: hot)
     }
 }

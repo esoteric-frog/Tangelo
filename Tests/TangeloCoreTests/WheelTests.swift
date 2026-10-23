@@ -53,9 +53,14 @@ let menus = WheelMenus(conversion: Registry([ImageConverter(binDir: binDir), PDF
     #expect(menus.choices(.tools, for: [URL(fileURLWithPath: "/a.pdf")]) == [.format(.smallPDF)])
 }
 
-@Test func bubblesShrinkToFitRing() {
-    #expect(WheelGeometry.bubbleSize(count: 4, ringRadius: 110, maxSize: 80) == 80)
-    let many = WheelGeometry.bubbleSize(count: 12, ringRadius: 110, maxSize: 80)
-    #expect(many < 80 && many * 12 < 2 * .pi * 110)  // neighbours never overlap
-    #expect(WheelGeometry.bubbleSize(count: 0, ringRadius: 110, maxSize: 80) == 80)
+@Test func sliceIsRoundedAndSeparated() {
+    let o = CGPoint.zero
+    let p = WheelGeometry.slicePath(index: 0, count: 4, center: o, inner: 50, outer: 160, gap: 6, corner: 10)
+    #expect(p.contains(CGPoint(x: 0, y: 100)))                      // middle of the top slice (y up)
+    #expect(!p.contains(CGPoint(x: 0, y: 30)))                      // dead zone stays empty
+    #expect(!p.contains(CGPoint(x: 100 * sin(.pi / 4), y: 100 * cos(.pi / 4))))  // on the seam: gap
+    let sharp = CGPoint(x: 158 * sin(.pi / 4 - 0.03), y: 158 * cos(.pi / 4 - 0.03))
+    #expect(!p.contains(sharp))                                     // outer corner is rounded off
+    #expect(WheelGeometry.slicePath(index: 0, count: 1, center: o, inner: 50, outer: 160, gap: 6, corner: 10)
+        .contains(CGPoint(x: 0, y: -100)))                          // one choice = full ring
 }
