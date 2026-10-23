@@ -14,6 +14,7 @@ final class WheelModel: ObservableObject {
 final class WheelController {
     static let size: CGFloat = 340
     static let deadZone: CGFloat = 50
+    static let hitDeadZone: CGFloat = 32  // slices start picking a bit inside the drawn centre
 
     var onChoose: (WheelChoice, [URL]) -> Void = { _, _ in }
     let model = WheelModel()
@@ -82,6 +83,11 @@ final class WheelDropView: NSView {
         super.init(frame: frame)
         autoresizingMask = [.width, .height]
         registerForDraggedTypes([.fileURL])
+        // macOS sends drags straight through fully clear pixels of a borderless window, so the
+        // see-through glass only "caught" the drag over the labels. A barely-there disc fixes that.
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.02).cgColor
+        layer?.cornerRadius = frame.width / 2
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -89,7 +95,7 @@ final class WheelDropView: NSView {
         let p = convert(sender.draggingLocation, from: nil)
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
         guard hypot(p.x - center.x, p.y - center.y) <= bounds.width / 2 else { return nil }
-        return WheelGeometry.slice(at: p, center: center, count: model.choices.count, deadZone: WheelController.deadZone)
+        return WheelGeometry.slice(at: p, center: center, count: model.choices.count, deadZone: WheelController.hitDeadZone)
     }
 
     private func track(_ sender: NSDraggingInfo) -> NSDragOperation {
