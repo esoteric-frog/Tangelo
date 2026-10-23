@@ -31,11 +31,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     let popover = NSPopover()
     let drop = DropState()
-    lazy var registry = Registry([
-        ImageConverter(binDir: Bundle.main.resourceURL!.appendingPathComponent("bin")),
-        PDFShrinkConverter(),
-    ])
-    lazy var queue = JobQueue(registry: registry)
+    lazy var bin = Bundle.main.resourceURL!.appendingPathComponent("bin")
+    lazy var menus = WheelMenus(
+        conversion: Registry([ImageConverter(binDir: bin), PDFShrinkConverter()]),
+        tools: Registry([ImageToolConverter(), PDFShrinkConverter()]))
+    lazy var registry = menus.conversion
+    lazy var queue = JobQueue(registry: Registry(menus.conversion.converters + menus.tools.converters))
+    let wheel = WheelController()
     let watcher = DragWatcher()
     let log = Logger(subsystem: "io.github.lil-esoteric-frog.Tangelo", category: "wheel")
 
@@ -55,7 +57,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onPick: { [weak self] f in self?.pick(f) },
             onChooseFiles: { [weak self] in self?.chooseFiles() }))
         watcher.onTap = { [weak self] key, files in
-            self?.log.notice("tap \(String(describing: key), privacy: .public) with \(files.count) files")
+            guard let self else { return }
+            let kind = WheelKind.opened(by: key)
+            log.notice("tap \(String(describing: key), privacy: .public) with \(files.count) files")
+            wheel.open(kind: kind, choices: menus.choices(kind, for: files), at: NSEvent.mouseLocation)
+        }
+        watcher.onDragEnd = { [weak self] in self?.wheel.closeSoon() }
+        wheel.onChoose = { [weak self] choice, files in
+            guard let self else { return }
+            switch choice {
+            case .format(let f):
+                queue.add(files, format: f)
+                show()
+            case .action(let a):
+                ActionRunner.run(a, files)
+            }
         }
         watcher.start()
     }
