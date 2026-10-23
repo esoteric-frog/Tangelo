@@ -57,6 +57,12 @@ public enum WheelGeometry {
 
     /// Centre angle of slice `i` in radians; 0 = up, clockwise.
     public static func angle(of i: Int, count: Int) -> Double { 2 * .pi * Double(i) / Double(count) }
+
+    /// Diameter of each round choice on a ring, small enough that neighbours keep an 8 pt gap.
+    public static func bubbleSize(count: Int, ringRadius: CGFloat, maxSize: CGFloat) -> CGFloat {
+        guard count > 1 else { return maxSize }
+        return min(maxSize, 2 * ringRadius * sin(.pi / CGFloat(count)) - 8)
+    }
 }
 
 public enum FileAction: String, CaseIterable, Sendable {

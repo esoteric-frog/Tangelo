@@ -52,3 +52,10 @@ let menus = WheelMenus(conversion: Registry([ImageConverter(binDir: binDir), PDF
     #expect(menus.choices(.tools, for: [URL(fileURLWithPath: "/a.jpg")]) == [.format(.compress), .format(.halfSize)])
     #expect(menus.choices(.tools, for: [URL(fileURLWithPath: "/a.pdf")]) == [.format(.smallPDF)])
 }
+
+@Test func bubblesShrinkToFitRing() {
+    #expect(WheelGeometry.bubbleSize(count: 4, ringRadius: 110, maxSize: 80) == 80)
+    let many = WheelGeometry.bubbleSize(count: 12, ringRadius: 110, maxSize: 80)
+    #expect(many < 80 && many * 12 < 2 * .pi * 110)  // neighbours never overlap
+    #expect(WheelGeometry.bubbleSize(count: 0, ringRadius: 110, maxSize: 80) == 80)
+}

@@ -6,6 +6,7 @@ final class WheelModel: ObservableObject {
     @Published var kind: WheelKind = .conversion
     @Published var choices: [WheelChoice] = []
     @Published var highlighted: Int?
+    @Published var opened = UUID()  // new id per open replays the pop-in animation
 }
 
 /// Borderless glass wheel centred on the pointer; the drop view on top picks the slice.
@@ -24,6 +25,7 @@ final class WheelController {
         model.kind = kind
         model.choices = choices
         model.highlighted = nil
+        if panel?.isVisible != true { model.opened = UUID() }
         let s = Self.size
         let frame = NSRect(x: point.x - s / 2, y: point.y - s / 2, width: s, height: s)
         let panel = self.panel ?? makePanel()
@@ -117,63 +119,90 @@ final class WheelDropView: NSView {
     }
 }
 
-struct SliceShape: Shape {
-    let index: Int, count: Int
-    let inner: CGFloat, outer: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        let c = CGPoint(x: rect.midX, y: rect.midY)
-        let step = 2 * Double.pi / Double(count)
-        let gap = count > 1 ? 0.012 : 0
-        let a0 = WheelGeometry.angle(of: index, count: count) - step / 2 + gap
-        let a1 = a0 + step - 2 * gap
-        func pt(_ r: CGFloat, _ a: Double) -> CGPoint { CGPoint(x: c.x + r * sin(a), y: c.y - r * cos(a)) }  // y-down
-        let n = 32
-        var p = Path()
-        p.move(to: pt(inner, a0))
-        for s in 0...n { p.addLine(to: pt(outer, a0 + (a1 - a0) * Double(s) / Double(n))) }
-        for s in (0...n).reversed() { p.addLine(to: pt(inner, a0 + (a1 - a0) * Double(s) / Double(n))) }
-        p.closeSubpath()
-        return p
-    }
-}
-
 struct WheelGraphic: View {
     @ObservedObject var model: WheelModel
+    // New identity per open resets `shown` in WheelBody, so the pop-in plays every time.
+    var body: some View { WheelBody(model: model).id(model.opened) }
+}
+
+struct WheelBody: View {
+    @ObservedObject var model: WheelModel
+    @State private var shown = false
 
     var body: some View {
         GeometryReader { geo in
-            let outer = min(geo.size.width, geo.size.height) / 2 - 8
-            let inner = WheelController.deadZone
-            let c = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+            let outer = min(geo.size.width, geo.size.height) / 2 - 10
+            let ring = outer - 52
             let n = model.choices.count
+            let bubble = WheelGeometry.bubbleSize(count: n, ringRadius: ring, maxSize: 84)
+            let c = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             ZStack {
-                Circle().fill(.ultraThinMaterial).frame(width: outer * 2, height: outer * 2)
-                    .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
+                Circle().fill(.ultraThinMaterial)
+                    .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
+                    .frame(width: outer * 2, height: outer * 2)
                 ForEach(Array(model.choices.enumerated()), id: \.offset) { i, choice in
-                    SliceShape(index: i, count: n, inner: inner, outer: outer)
-                        .fill(model.highlighted == i ? Color.orange.opacity(0.9) : Color.primary.opacity(0.06))
-                    let a = WheelGeometry.angle(of: i, count: n), mid = (inner + outer) / 2
-                    VStack(spacing: 3) {
-                        Image(systemName: choice.symbol).font(.system(size: 18, weight: .semibold))
-                        Text(choice.title).font(.system(size: 11, weight: .medium)).lineLimit(1)
-                    }
-                    .frame(width: 80)
-                    .foregroundStyle(model.highlighted == i ? .white : .primary)
-                    .position(x: c.x + mid * sin(a), y: c.y - mid * cos(a))
+                    let a = WheelGeometry.angle(of: i, count: n)
+                    let hot = model.highlighted == i
+                    Petal(choice: choice, tint: Self.tint(i, n), hot: hot, size: bubble)
+                        .position(x: c.x + ring * sin(a), y: c.y - ring * cos(a))
+                        .scaleEffect(shown ? 1 : 0.3, anchor: UnitPoint(x: 0.5, y: 0.5))
+                        .opacity(shown ? 1 : 0)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.65).delay(Double(i) * 0.025), value: shown)
                 }
-                Circle().fill(.regularMaterial).frame(width: inner * 2 - 6, height: inner * 2 - 6)
-                Text(centerText).font(.system(size: 12, weight: .semibold))
-                    .multilineTextAlignment(.center).frame(width: inner * 2 - 14)
+                Text(centerText)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .frame(maxWidth: 96)
+                    .background(Capsule().fill(.regularMaterial))
+                    .animation(.easeOut(duration: 0.12), value: centerText)
             }
             .frame(width: geo.size.width, height: geo.size.height)
+            .scaleEffect(shown ? 1 : 0.85)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shown)
         }
+        .onAppear { DispatchQueue.main.async { shown = true } }  // next frame, so the change animates
+    }
+
+    /// Soft, evenly spread hue per choice.
+    static func tint(_ i: Int, _ n: Int) -> Color {
+        Color(hue: 0.55 + Double(i) / Double(max(n, 1)) * 0.45, saturation: 0.35, brightness: 0.95)
     }
 
     var centerText: String {
-        if n == 0 { return "Nothing to do for these files" }
+        if model.choices.isEmpty { return "Nothing to do for these files" }
         if let i = model.highlighted, model.choices.indices.contains(i) { return model.choices[i].title }
         return model.kind.title
     }
-    private var n: Int { model.choices.count }
+}
+
+/// One round choice: soft glass bubble, turns orange and grows when the pointer is over it.
+struct Petal: View {
+    let choice: WheelChoice
+    let tint: Color
+    let hot: Bool
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle().fill(.thinMaterial)
+            Circle().fill(LinearGradient(colors: hot ? [.orange, Color(red: 1, green: 0.45, blue: 0.1)]
+                                                     : [tint.opacity(0.55), tint.opacity(0.25)],
+                                         startPoint: .top, endPoint: .bottom))
+            Circle().stroke(.white.opacity(hot ? 0.8 : 0.4), lineWidth: 1)
+            VStack(spacing: 2) {
+                Image(systemName: choice.symbol).font(.system(size: size * 0.26, weight: .semibold))
+                Text(choice.title).font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
+            }
+            .padding(6)
+            .foregroundStyle(hot ? .white : .primary)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: hot ? .orange.opacity(0.6) : .black.opacity(0.12), radius: hot ? 10 : 3, y: hot ? 0 : 1)
+        .scaleEffect(hot ? 1.18 : 1)
+        .animation(.spring(response: 0.25, dampingFraction: 0.55), value: hot)
+    }
 }

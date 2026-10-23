@@ -1,5 +1,6 @@
 import AppKit
 import os
+import ServiceManagement
 import SwiftUI
 import TangeloCore
 
@@ -74,6 +75,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         watcher.start()
+        startAtLogin()
+    }
+
+    /// Register as a login item, only from /Applications so a dev build never takes the slot.
+    func startAtLogin() {
+        guard Bundle.main.bundlePath.hasPrefix("/Applications/") else { return }
+        let app = SMAppService.mainApp
+        guard app.status != .enabled else { return }
+        do { try app.register() } catch { log.error("login item: \(error.localizedDescription, privacy: .public)") }
+        log.notice("login item status \(app.status.rawValue)")
     }
 
     func received(_ urls: [URL]) {
