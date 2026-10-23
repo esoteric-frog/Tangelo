@@ -144,10 +144,17 @@ struct WheelBody: View {
             ZStack {
                 // Glass is costly: drawn once per open, never redrawn on hover (equatable skips it).
                 GlassRing(count: n, inner: inner, outer: outer).equatable()
-                if let h = model.highlighted, h < n {  // cheap orange layer is all that changes on hover
-                    Segment(index: h, count: n, inner: inner, outer: outer)
+                // Cheap orange layers are all that change on hover: the hovered one blooms out
+                // from the hub (scaled about the wheel centre) and glows; the last one wilts back.
+                ForEach(0..<n, id: \.self) { i in
+                    let hot = model.highlighted == i
+                    Segment(index: i, count: n, inner: inner, outer: outer)
                         .fill(Color.orange.opacity(0.45))
-                        .transition(.opacity)
+                        .shadow(color: .orange.opacity(hot ? 0.55 : 0), radius: hot ? 10 : 0)
+                        .scaleEffect(hot ? 1 : 0.55)
+                        .opacity(hot ? 1 : 0)
+                        .animation(hot ? .spring(response: 0.26, dampingFraction: 0.62)
+                                       : .easeIn(duration: 0.12), value: hot)
                 }
                 ForEach(Array(model.choices.enumerated()), id: \.offset) { i, choice in
                     let a = WheelGeometry.angle(of: i, count: n), mid = (inner + outer) / 2
@@ -167,7 +174,6 @@ struct WheelBody: View {
                     .frame(width: inner * 2 - 16, height: inner * 2 - 16)
                     .position(c)
             }
-            .animation(.easeOut(duration: 0.08), value: model.highlighted)
             .scaleEffect(shown ? 1 : 0.7)
             .opacity(shown ? 1 : 0)
             .animation(.spring(response: 0.28, dampingFraction: 0.75), value: shown)
